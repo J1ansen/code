@@ -1,0 +1,72 @@
+[
+  {
+    "dataset": "cora",
+    "config": "configs/main/cora.yaml",
+    "report_selection": "best_by_val_acc",
+    "metric": "test_acc",
+    "source_config": "outputs/p24_conservative_table_best_cora_10trial/cora/Cora/20260922_143131/seed_12345001/trial_0/config.yaml",
+    "source_config_sha256": "911b3d29a8e19976c7cacf3a0e8c2befd63595dcf2a4d8f49753ca8ef4e4f42f",
+    "source_summary": "outputs/p24_conservative_table_best_cora_10trial/cora/Cora/20260922_143131/summary.json",
+    "matches_manuscript": true
+  },
+  {
+    "dataset": "citeseer",
+    "config": "configs/main/citeseer.yaml",
+    "report_selection": "best_by_val_acc",
+    "metric": "test_acc",
+    "source_config": "outputs/p24_conservative_table_best_citeseer_10trial/citeseer/CiteSeer/20260922_143249/seed_12345001/trial_0/config.yaml",
+    "source_config_sha256": "745cd0aa254d330070989b935032dac0a5f52d0db4595b2333a06bf7efde40b3",
+    "source_summary": "outputs/p24_conservative_table_best_citeseer_10trial/citeseer/CiteSeer/20260922_143249/summary.json",
+    "matches_manuscript": true
+  },
+  {
+    "dataset": "pubmed",
+    "config": "configs/main/pubmed.yaml",
+    "report_selection": "best_by_val_acc",
+    "metric": "test_acc",
+    "source_config": "outputs/p24_conservative_table_best_pubmed_10trial/pubmed/PubMed/20260922_144902/seed_12345001/trial_0/config.yaml",
+    "source_config_sha256": "2718122a11b23126ad01e2cc04c20b2d76453aab80f072a825b78c53a3f1c3b8",
+    "source_summary": "outputs/p24_conservative_table_best_pubmed_10trial/pubmed/PubMed/20260922_144902/summary.json",
+    "matches_manuscript": true
+  },
+  {
+    "dataset": "wikics",
+    "config": "configs/main/wikics.yaml",
+    "report_selection": "best_by_val_acc",
+    "metric": "test_acc",
+    "source_config": "outputs/p24_conservative_table_best_wikics_10trial/wikics/WikiCS/20260922_145540/seed_12345001/trial_0/config.yaml",
+    "source_config_sha256": "f9351331aec4e5e5f63d421944401a831f1124ff251047bffa5dfc0a83acaa10",
+    "source_summary": "outputs/p24_conservative_table_best_wikics_10trial/wikics/WikiCS/20260922_145540/summary.json",
+    "matches_manuscript": true
+  },
+  {
+    "dataset": "actor",
+    "config": "configs/main/actor.yaml",
+    "report_selection": "best",
+    "metric": "test_acc",
+    "source_config": "outputs/p24_actor_calibration_tuned_w20_m0p1_seed12345_10trial/Actor/20260922_203456/seed_12345001/trial_0/config.yaml",
+    "source_config_sha256": "65f712bd3ec90a7cc7ea7cee728ee02e7f769f8267884310a63afdfa54e09ee4",
+    "source_summary": "outputs/p24_actor_calibration_tuned_w20_m0p1_seed12345_10trial/Actor/20260922_203456/summary.json",
+    "matches_manuscript": true
+  },
+  {
+    "dataset": "chameleon",
+    "config": "configs/main/chameleon.yaml",
+    "report_selection": "best_by_val_acc",
+    "metric": "test_acc",
+    "source_config": "outputs/p24_chameleon_10pct_lr0p00075_plr0p00075_mix0p2_seed12345_10trial/Chameleon/20260923_114420/seed_12345/trial_0/config.yaml",
+    "source_config_sha256": "167b251064af6c1d7cc531b147a14633d6fe58aa6a5a6fc8d250c3ea137d9d7b",
+    "source_summary": "outputs/p24_chameleon_10pct_lr0p00075_plr0p00075_mix0p2_seed12345_10trial/Chameleon/20260923_114420/summary.json",
+    "matches_manuscript": true
+  },
+  {
+    "dataset": "minesweeper",
+    "config": "configs/main/minesweeper.yaml",
+    "report_selection": "best",
+    "metric": "test_macro_f1",
+    "source_config": "outputs/p24_conservative_table_best_minesweeper_10trial/minesweeper/Minesweeper/20260922_165427/seed_12345001/trial_0/config.yaml",
+    "source_config_sha256": "e3dac1945f9abf6c140f65921c5d34177f0347fd5d427896c0371392f9492d39",
+    "source_summary": "outputs/p24_conservative_table_best_minesweeper_10trial/minesweeper/Minesweeper/20260922_165427/summary.json",
+    "matches_manuscript": false
+  }
+]

@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.DS_Store
+datasets/
+outputs/
+*.log
+checkpoints/
+pretrained_gnns/
+*.pt
+*.pkl

@@ -1,0 +1,12 @@
+numpy>=1.23
+scipy>=1.10
+scikit-learn>=1.2
+PyYAML>=6.0
+tqdm>=4.65
+
+torch>=2.0
+torch-geometric>=2.4
+torchmetrics>=1.0
+
+pytest>=7.0
+

@@ -1,0 +1,15 @@
+strategy: GRACE
+dataset: Cora
+seed: 12345
+hidden_dim: 128
+num_layers: 2
+projection_dim: 128
+temperature: 0.5
+learning_rate: 0.0005
+weight_decay: 0.0005
+epochs: 1000
+patience: 20
+edge_drop_rate: 0.2
+feature_drop_rate: 0.2
+device: auto
+download_if_missing: true

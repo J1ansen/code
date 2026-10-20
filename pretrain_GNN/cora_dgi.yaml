@@ -1,0 +1,14 @@
+strategy: DGI
+dataset: Cora
+seed: 12345
+hidden_dim: 128
+num_layers: 2
+learning_rate: 0.001
+weight_decay: 0.00001
+epochs: 1000
+patience: 20
+encoder_dropout: 0.0
+edge_drop_rate: 0.2
+feature_drop_rate: 0.2
+device: auto
+download_if_missing: true

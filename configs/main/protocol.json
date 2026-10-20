@@ -1,0 +1,72 @@
+[
+  {
+    "dataset": "actor",
+    "config": "configs/main/actor.yaml",
+    "validation_metric": "val_acc",
+    "report_metric": "test_acc",
+    "report_selection": "best",
+    "output_dir": "outputs/main_validation/actor",
+    "trials": 10,
+    "original_config": "results/main/archived_configs/actor.yaml"
+  },
+  {
+    "dataset": "chameleon",
+    "config": "configs/main/chameleon.yaml",
+    "validation_metric": "val_acc",
+    "report_metric": "test_acc",
+    "report_selection": "best",
+    "output_dir": "outputs/main_validation/chameleon",
+    "trials": 10,
+    "original_config": "results/main/archived_configs/chameleon.yaml"
+  },
+  {
+    "dataset": "citeseer",
+    "config": "configs/main/citeseer.yaml",
+    "validation_metric": "val_acc",
+    "report_metric": "test_acc",
+    "report_selection": "best",
+    "output_dir": "outputs/main_validation/citeseer",
+    "trials": 10,
+    "original_config": "results/main/archived_configs/citeseer.yaml"
+  },
+  {
+    "dataset": "cora",
+    "config": "configs/main/cora.yaml",
+    "validation_metric": "val_acc",
+    "report_metric": "test_acc",
+    "report_selection": "best",
+    "output_dir": "outputs/main_validation/cora",
+    "trials": 10,
+    "original_config": "results/main/archived_configs/cora.yaml"
+  },
+  {
+    "dataset": "minesweeper",
+    "config": "configs/main/minesweeper.yaml",
+    "validation_metric": "val_macro_f1",
+    "report_metric": "test_macro_f1",
+    "report_selection": "best",
+    "output_dir": "outputs/main_validation/minesweeper",
+    "trials": 10,
+    "original_config": "results/main/archived_configs/minesweeper.yaml"
+  },
+  {
+    "dataset": "pubmed",
+    "config": "configs/main/pubmed.yaml",
+    "validation_metric": "val_acc",
+    "report_metric": "test_acc",
+    "report_selection": "best",
+    "output_dir": "outputs/main_validation/pubmed",
+    "trials": 10,
+    "original_config": "results/main/archived_configs/pubmed.yaml"
+  },
+  {
+    "dataset": "wikics",
+    "config": "configs/main/wikics.yaml",
+    "validation_metric": "val_acc",
+    "report_metric": "test_acc",
+    "report_selection": "best",
+    "output_dir": "outputs/main_validation/wikics",
+    "trials": 10,
+    "original_config": "results/main/archived_configs/wikics.yaml"
+  }
+]

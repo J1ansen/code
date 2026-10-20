@@ -1,0 +1,58 @@
+[
+  {
+    "dataset": "cora",
+    "metric": "test_acc",
+    "mean": 71.4494526386261,
+    "std": 3.8867590363885967,
+    "trials": 10,
+    "selection": "best_by_val_acc"
+  },
+  {
+    "dataset": "citeseer",
+    "metric": "test_acc",
+    "mean": 67.1543151140213,
+    "std": 4.068905214287606,
+    "trials": 10,
+    "selection": "best_by_val_acc"
+  },
+  {
+    "dataset": "pubmed",
+    "metric": "test_acc",
+    "mean": 69.44727718830109,
+    "std": 4.178986920839513,
+    "trials": 10,
+    "selection": "best_by_val_acc"
+  },
+  {
+    "dataset": "wikics",
+    "metric": "test_acc",
+    "mean": 63.2697057723999,
+    "std": 2.804442287001442,
+    "trials": 10,
+    "selection": "best_by_val_acc"
+  },
+  {
+    "dataset": "actor",
+    "metric": "test_acc",
+    "mean": 27.283194065093994,
+    "std": 0.6515985072361488,
+    "trials": 10,
+    "selection": "best"
+  },
+  {
+    "dataset": "chameleon",
+    "metric": "test_acc",
+    "mean": 36.49973601102829,
+    "std": 1.6189162581154644,
+    "trials": 10,
+    "selection": "best_by_val_acc"
+  },
+  {
+    "dataset": "minesweeper",
+    "metric": "test_macro_f1",
+    "mean": 60.676689594984055,
+    "std": 0.9915431301208039,
+    "trials": 10,
+    "selection": "best"
+  }
+]
