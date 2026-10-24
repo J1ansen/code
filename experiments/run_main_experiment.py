@@ -2260,6 +2260,7 @@ def _update_test_acc_diagnostic(
     selection_metric: str,
     maximize: bool,
 ) -> dict[str, Any]:
+    _validate_selection_metric(selection_metric)
     selection_value = (
         float(train_loss)
         if selection_metric == "train_loss"
@@ -7245,7 +7246,28 @@ def _float_grid(raw: Any, *, default: list[float] | None = None) -> list[float]:
     return unique
 
 
+_ALLOWED_SELECTION_METRICS = frozenset({
+    "val_acc", "val_macro_f1", "val_auroc", "val_auprc",
+    "train_loss", "total", "cls", "edge_l1", "prompt_balance",
+    "p22_pattern_only_loss", "p22_basis_teacher_loss", "p22_basis_usage_loss", "p22_aux_loss",
+})
+
+
+def _training_label_mask(split: Any) -> torch.Tensor:
+    mask = split.train_mask.bool().clone()
+    if bool((mask & split.test_mask.bool()).any()):
+        raise ValueError("Training and test nodes must be disjoint")
+    return mask
+
+
+def _validate_selection_metric(metric: str) -> str:
+    if metric not in _ALLOWED_SELECTION_METRICS:
+        raise ValueError("Model selection requires a training-loss or validation metric")
+    return metric
+
+
 def _candidate_monitor_value(result: dict[str, Any], metric: str) -> float:
+    _validate_selection_metric(metric)
     if metric in result.get("best", {}):
         return float(result["best"].get(metric, 0.0))
     if metric in result.get("final", {}):
@@ -7550,7 +7572,6 @@ def evaluate_prompt_graph(
             for eval_mask, eval_prefix in (
                 (train_mask, "p21_oracle_train"),
                 (val_mask, "p21_oracle_val"),
-                (test_mask, "p21_oracle_test"),
             ):
                 _, _, oracle_stats = p21_channel_utility_supervision_loss(
                     adapter_out=adapter_out,
@@ -7580,7 +7601,6 @@ def evaluate_prompt_graph(
             for eval_mask, eval_prefix in (
                 (train_mask, "p21_v2_ungated_oracle_train"),
                 (val_mask, "p21_v2_ungated_oracle_val"),
-                (test_mask, "p21_v2_ungated_oracle_test"),
             ):
                 adapter_diag.update(
                     p21_channel_ungated_oracle_diagnostics(
@@ -7604,7 +7624,6 @@ def evaluate_prompt_graph(
             for eval_mask, eval_prefix in (
                 (train_mask, "prompt_router_expert_train"),
                 (val_mask, "prompt_router_expert_val"),
-                (test_mask, "prompt_router_expert_test"),
             ):
                 _, expert_stats = prompt_router_expert_utility_supervision_loss(
                     adapter_out=adapter_out,
@@ -7631,7 +7650,6 @@ def evaluate_prompt_graph(
             for eval_mask, eval_prefix in (
                 (train_mask & update_mask, "prompt_router_expert_train_pool"),
                 (val_mask & update_mask, "prompt_router_expert_val_pool"),
-                (test_mask & update_mask, "prompt_router_expert_test_pool"),
             ):
                 _, expert_stats = prompt_router_expert_utility_supervision_loss(
                     adapter_out=adapter_out,
@@ -8385,30 +8403,7 @@ def run_single(
             device=device,
             load_prompt=bool(training_cfg.get("load_prompt_from_base_checkpoint", False)),
         )
-    enable_test_label_cheat = bool(training_cfg.get("enable_test_label_cheat", False))
-    test_label_cheat_fraction = min(
-        max(float(training_cfg.get("test_label_cheat_fraction", 0.10)), 0.0),
-        1.0,
-    )
-    label_train_mask = split.train_mask.bool()
-    if enable_test_label_cheat:
-        # Oracle diagnostic only: deliberately leak test labels into the
-        # supervised training pool while keeping eval splits unchanged. Leak a
-        # deterministic subset per seed so oracle runs remain reproducible.
-        test_idx = torch.where(split.test_mask.bool())[0]
-        leak_count = int(test_idx.numel() * test_label_cheat_fraction)
-        if test_label_cheat_fraction > 0.0 and test_idx.numel() > 0:
-            leak_count = max(1, leak_count)
-        leak_count = min(leak_count, int(test_idx.numel()))
-        if leak_count > 0:
-            generator = torch.Generator(device=test_idx.device)
-            generator.manual_seed(int(seed) * 1000003 + 9176)
-            selected = test_idx[torch.randperm(test_idx.numel(), device=test_idx.device, generator=generator)[:leak_count]]
-            test_label_cheat_mask = torch.zeros_like(label_train_mask, dtype=torch.bool)
-            test_label_cheat_mask[selected] = True
-            label_train_mask = label_train_mask | test_label_cheat_mask
-    cheat_test_label_count = int((label_train_mask & split.test_mask.bool()).sum().item())
-    actual_test_label_cheat_fraction = cheat_test_label_count / max(1, int(split.test_mask.bool().sum().item()))
+    label_train_mask = _training_label_mask(split)
 
     init_train_mask = label_train_mask
     if bool(prompt_graph_cfg.get("support_only_prompt_graph", False)) and bool(
@@ -8540,7 +8535,7 @@ def run_single(
     epochs = int(training_cfg.get("epochs", 200))
     log_every = int(training_cfg.get("log_every", 20))
     eval_every = max(1, int(training_cfg.get("eval_every", 1)))
-    monitor = str(training_cfg.get("early_stop_metric", "val_acc"))
+    monitor = _validate_selection_metric(str(training_cfg.get("early_stop_metric", "val_acc")))
     val_present_classes = sorted(
         int(value)
         for value in torch.unique(graph.y[split.val_mask.bool()]).detach().cpu().tolist()
@@ -9026,7 +9021,6 @@ def run_single(
     best_metrics: dict[str, Any] = {}
     best_by_val_acc: dict[str, Any] = {}
     best_by_train_loss: dict[str, Any] = {}
-    oracle_best_by_test_acc: dict[str, Any] = {}
     identity_metrics: dict[str, Any] = {}
     best_candidate_val = -1.0
     best_candidate_metrics: dict[str, Any] = {}
@@ -10960,10 +10954,6 @@ def run_single(
         prompt_aware_log = _prompt_aware_diagnostics(model_out)
         log_item = {
             "epoch": float(epoch),
-            "test_label_cheat_enabled": float(enable_test_label_cheat),
-            "test_label_cheat_fraction": float(test_label_cheat_fraction),
-            "actual_test_label_cheat_fraction": float(actual_test_label_cheat_fraction),
-            "test_label_cheat_count": float(cheat_test_label_count),
             "label_train_count": float(label_train_mask.sum().item()),
             "total": float(loss.detach().item()),
             "full_loss": float(full_loss.detach().item()),
@@ -11402,14 +11392,6 @@ def run_single(
                 selection_metric="train_loss",
                 maximize=False,
             )
-            oracle_best_by_test_acc = _update_test_acc_diagnostic(
-                oracle_best_by_test_acc,
-                epoch=epoch,
-                train_loss=evaluated_train_loss,
-                metrics=metrics,
-                selection_metric="test_acc",
-                maximize=True,
-            )
             monitor_value = float(monitor_lookup.get(monitor, metrics["val_acc"]))
             if (
                 p24_counterfactual_enabled
@@ -11486,10 +11468,6 @@ def run_single(
                 best_metrics = {
                     "best_epoch": float(epoch),
                     "monitor_value": monitor_value,
-                    "test_label_cheat_enabled": float(enable_test_label_cheat),
-                    "test_label_cheat_fraction": float(test_label_cheat_fraction),
-                    "actual_test_label_cheat_fraction": float(actual_test_label_cheat_fraction),
-                    "test_label_cheat_count": float(cheat_test_label_count),
                     "label_train_count": float(label_train_mask.sum().item()),
                     **metrics,
                     "total": float(loss.detach().item()),
@@ -11770,10 +11748,6 @@ def run_single(
         "trial_seed_mode": str(experiment_cfg.get("trial_seed_mode", "stream")),
         "prompt_variant": variant,
         "component_ablation": str(experiment_cfg.get("ablation", "none")),
-        "test_label_cheat_enabled": enable_test_label_cheat,
-        "test_label_cheat_fraction": test_label_cheat_fraction,
-        "actual_test_label_cheat_fraction": actual_test_label_cheat_fraction,
-        "test_label_cheat_count": cheat_test_label_count,
         "label_train_count": int(label_train_mask.sum().item()),
         "shot_setting_mode": shot_setting_mode,
         "split_protocol": split_protocol,
@@ -11833,7 +11807,6 @@ def run_single(
         "best": {**best_metrics, **init_eq},
         "best_by_val_acc": best_by_val_acc,
         "best_by_train_loss": best_by_train_loss,
-        "oracle_best_by_test_acc": oracle_best_by_test_acc,
         "safe": {**safe_metrics, **init_eq},
         "identity": {**identity_metrics, **init_eq},
         "best_candidate": {**best_candidate_metrics, **init_eq},
@@ -12042,6 +12015,9 @@ def run_single(
 
 
 def run(config: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
+    selection_cfg = config.get("training", {})
+    _validate_selection_metric(str(selection_cfg.get("early_stop_metric", "val_acc")))
+    _validate_selection_metric(str(selection_cfg.get("message_scale_selection_metric", "val_acc")))
     from pretrain_GNN.pretrain import ensure_pretrained
     ensure_pretrained(config, repo_root=repo_root)
     variant = _prompt_variant(config)
@@ -12175,9 +12151,6 @@ def run(config: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
     loss_best_test = [
         float(result.get("best_by_train_loss", {}).get("test_acc", 0.0)) for result in results
     ]
-    oracle_best_test = [
-        float(result.get("oracle_best_by_test_acc", {}).get("test_acc", 0.0)) for result in results
-    ]
     final_test = [float(result["final"].get("test_acc", 0.0)) for result in results]
     final_macro_f1 = [float(result["final"].get("test_macro_f1", 0.0)) for result in results]
     final_auroc = [float(result["final"].get("test_auroc", 0.0)) for result in results]
@@ -12200,9 +12173,6 @@ def run(config: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
         float(result.get("best_candidate", {}).get("p24_test_candidate_macro_f1", 0.0))
         for result in results
     ]
-    cheat_enabled = [float(bool(result.get("test_label_cheat_enabled", False))) for result in results]
-    cheat_fractions = [float(result.get("actual_test_label_cheat_fraction", 0.0)) for result in results]
-    cheat_counts = [float(result.get("test_label_cheat_count", 0.0)) for result in results]
     label_train_counts = [float(result.get("label_train_count", 0.0)) for result in results]
     summary = {
         "dataset": target_dataset,
@@ -12221,9 +12191,6 @@ def run(config: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
         "seeds": seeds,
         "trials_per_seed": trials_per_seed,
         "num_runs": len(results),
-        "test_label_cheat_enabled": any(bool(value) for value in cheat_enabled),
-        "actual_test_label_cheat_fraction_mean_std": _format_mean_std(cheat_fractions),
-        "test_label_cheat_count_mean_std": _format_mean_std(cheat_counts, scale=1.0),
         "label_train_count_mean_std": _format_mean_std(label_train_counts, scale=1.0),
         "best_test_acc_mean_std": _format_mean_std(best_test),
         "best_test_macro_f1_mean_std": _format_mean_std(best_macro_f1),
@@ -12231,7 +12198,6 @@ def run(config: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
         "best_test_auprc_mean_std": _format_mean_std(best_auprc),
         "test_acc_at_best_val_acc_mean_std": _format_mean_std(val_best_test),
         "test_acc_at_min_train_loss_mean_std": _format_mean_std(loss_best_test),
-        "oracle_max_observed_test_acc_mean_std": _format_mean_std(oracle_best_test),
         "test_acc_diagnostic_scope": "evaluated_epochs",
         "final_test_acc_mean_std": _format_mean_std(final_test),
         "final_test_macro_f1_mean_std": _format_mean_std(final_macro_f1),
@@ -12783,21 +12749,6 @@ def run(config: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
         "prompt_router_expert_val_gate_target_mean",
         "prompt_router_expert_val_gate_mean",
         "prompt_router_expert_val_gate_accuracy_to_oracle",
-        "prompt_router_expert_test_oracle_best_expert_gain",
-        "prompt_router_expert_test_oracle_positive_ratio",
-        "prompt_router_expert_test_no_prompt_acc",
-        "prompt_router_expert_test_no_prompt_macro_f1",
-        "prompt_router_expert_test_oracle_best_expert_acc",
-        "prompt_router_expert_test_oracle_best_expert_macro_f1",
-        "prompt_router_expert_test_oracle_best_expert_acc_lift_vs_no_prompt",
-        "prompt_router_expert_test_oracle_best_expert_macro_f1_lift_vs_no_prompt",
-        "prompt_router_expert_test_router_accuracy_to_best_expert",
-        "prompt_router_expert_test_no_correction_ratio",
-        "prompt_router_expert_test_learned_weighted_delta_ce",
-        "prompt_router_expert_test_gate_supervision_loss",
-        "prompt_router_expert_test_gate_target_mean",
-        "prompt_router_expert_test_gate_mean",
-        "prompt_router_expert_test_gate_accuracy_to_oracle",
         "prompt_router_expert_train_pool_oracle_best_expert_gain",
         "prompt_router_expert_train_pool_oracle_positive_ratio",
         "prompt_router_expert_train_pool_no_prompt_acc",
@@ -12828,21 +12779,6 @@ def run(config: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
         "prompt_router_expert_val_pool_gate_target_mean",
         "prompt_router_expert_val_pool_gate_mean",
         "prompt_router_expert_val_pool_gate_accuracy_to_oracle",
-        "prompt_router_expert_test_pool_oracle_best_expert_gain",
-        "prompt_router_expert_test_pool_oracle_positive_ratio",
-        "prompt_router_expert_test_pool_no_prompt_acc",
-        "prompt_router_expert_test_pool_no_prompt_macro_f1",
-        "prompt_router_expert_test_pool_oracle_best_expert_acc",
-        "prompt_router_expert_test_pool_oracle_best_expert_macro_f1",
-        "prompt_router_expert_test_pool_oracle_best_expert_acc_lift_vs_no_prompt",
-        "prompt_router_expert_test_pool_oracle_best_expert_macro_f1_lift_vs_no_prompt",
-        "prompt_router_expert_test_pool_router_accuracy_to_best_expert",
-        "prompt_router_expert_test_pool_no_correction_ratio",
-        "prompt_router_expert_test_pool_learned_weighted_delta_ce",
-        "prompt_router_expert_test_pool_gate_supervision_loss",
-        "prompt_router_expert_test_pool_gate_target_mean",
-        "prompt_router_expert_test_pool_gate_mean",
-        "prompt_router_expert_test_pool_gate_accuracy_to_oracle",
     ]
     diagnostic_summary_keys.extend(
         [
@@ -12869,21 +12805,16 @@ def run(config: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
         "prompt_router_expert",
         "prompt_router_expert_train",
         "prompt_router_expert_val",
-        "prompt_router_expert_test",
         "prompt_router_expert_train_pool",
         "prompt_router_expert_val_pool",
-        "prompt_router_expert_test_pool",
     ]
     p21_oracle_prefixes = [
         "p21_oracle_train",
         "p21_oracle_val",
-        "p21_oracle_test",
         "p21_v2_oracle_train",
         "p21_v2_oracle_val",
-        "p21_v2_oracle_test",
         "p21_v2_ungated_oracle_train",
         "p21_v2_ungated_oracle_val",
-        "p21_v2_ungated_oracle_test",
     ]
     p21_oracle_fields = [
         "loss",
@@ -13028,10 +12959,6 @@ def run(config: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
             "pretrained_backbone_uses_edge_weight",
             "graphmae_edge_weight_mode",
             "graphmae_edge_weight_strength",
-            "test_label_cheat_enabled",
-            "test_label_cheat_fraction",
-            "actual_test_label_cheat_fraction",
-            "test_label_cheat_count",
             "label_train_count",
             "best_epoch",
             "best_test_acc",
@@ -13044,8 +12971,6 @@ def run(config: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
             "min_train_loss_epoch",
             "min_train_loss",
             "test_acc_at_min_train_loss",
-            "oracle_max_test_acc_epoch",
-            "oracle_max_observed_test_acc",
             "safe_checkpoint_found",
             "safe_test_acc",
             "safe_test_macro_f1",
@@ -13429,10 +13354,6 @@ def run(config: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
                     ),
                     "graphmae_edge_weight_mode": result.get("graphmae_edge_weight_mode", "native_gcn"),
                     "graphmae_edge_weight_strength": result.get("graphmae_edge_weight_strength", 1.0),
-                    "test_label_cheat_enabled": result.get("test_label_cheat_enabled", False),
-                    "test_label_cheat_fraction": result.get("test_label_cheat_fraction", 0.0),
-                    "actual_test_label_cheat_fraction": result.get("actual_test_label_cheat_fraction", 0.0),
-                    "test_label_cheat_count": result.get("test_label_cheat_count", 0),
                     "label_train_count": result.get("label_train_count", 0),
                     "best_epoch": result["best"].get("best_epoch", 0.0),
                     "best_test_acc": result["best"].get("test_acc", 0.0),
@@ -13445,8 +13366,6 @@ def run(config: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
                     "min_train_loss_epoch": result.get("best_by_train_loss", {}).get("epoch", 0.0),
                     "min_train_loss": result.get("best_by_train_loss", {}).get("train_loss", 0.0),
                     "test_acc_at_min_train_loss": result.get("best_by_train_loss", {}).get("test_acc", 0.0),
-                    "oracle_max_test_acc_epoch": result.get("oracle_best_by_test_acc", {}).get("epoch", 0.0),
-                    "oracle_max_observed_test_acc": result.get("oracle_best_by_test_acc", {}).get("test_acc", 0.0),
                     "safe_checkpoint_found": result.get("safe", {}).get("p22_safe_checkpoint_found", 0.0),
                     "safe_test_acc": result.get("safe", {}).get("test_acc", 0.0),
                     "safe_test_macro_f1": result.get("safe", {}).get("test_macro_f1", 0.0),
@@ -13958,7 +13877,6 @@ def run(config: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
     print(f"Best Test Macro-F1: {summary['best_test_macro_f1_mean_std']}")
     print(f"Test Acc @ Best Val Acc:  {summary['test_acc_at_best_val_acc_mean_std']}")
     print(f"Test Acc @ Min Train Loss: {summary['test_acc_at_min_train_loss_mean_std']}")
-    print(f"Oracle Max Test Acc*:     {summary['oracle_max_observed_test_acc_mean_std']}")
     print("* Diagnostic only; test labels are not used for checkpoint selection.")
     print(f"Safe Test Acc:      {summary['safe_test_acc_mean_std']}")
     print(f"Safe Found:         {summary['safe_checkpoint_found_mean_std']}")
@@ -14184,8 +14102,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--base_checkpoint_root", type=str, default=None)
     parser.add_argument("--freeze_base", action="store_true")
     parser.add_argument("--unfreeze_base", action="store_true")
-    parser.add_argument("--enable_test_label_cheat", action="store_true")
-    parser.add_argument("--test_label_cheat_fraction", type=float, default=None)
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--prompt_lr", type=float, default=None)
     parser.add_argument("--dropout", type=float, default=None)
@@ -14333,10 +14249,6 @@ def main() -> None:
         overrides.setdefault("training", {})["freeze_base_model"] = True
     if args.unfreeze_base:
         overrides.setdefault("training", {})["freeze_base_model"] = False
-    if args.enable_test_label_cheat:
-        overrides.setdefault("training", {})["enable_test_label_cheat"] = True
-    if args.test_label_cheat_fraction is not None:
-        overrides.setdefault("training", {})["test_label_cheat_fraction"] = float(args.test_label_cheat_fraction)
     if args.rho is not None:
         overrides.setdefault("prompt_graph", {})["rho"] = float(args.rho)
     if args.p23_pool_rho is not None:

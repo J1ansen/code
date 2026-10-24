@@ -196,8 +196,6 @@ training:
   base_checkpoint_path: null
   base_checkpoint_root: null
   load_prompt_from_base_checkpoint: false
-  enable_test_label_cheat: false
-  test_label_cheat_fraction: 0.1
   p24_collapse_recovery:
     train_input_aligner: false
     train_adapters: false

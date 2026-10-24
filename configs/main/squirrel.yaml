@@ -171,8 +171,6 @@ training:
   base_checkpoint_path: null
   base_checkpoint_root: null
   load_prompt_from_base_checkpoint: false
-  enable_test_label_cheat: false
-  test_label_cheat_fraction: 0.1
   fusion_alpha_lr: 0.0001
   adapter_beta_fixed: 0.0
 release:
