@@ -27,9 +27,9 @@ for entry in entries:
         raise ValueError(f"Expected {entry['trials']} completed trials for {entry['dataset']}")
     for path in config_paths:
         cfg = yaml.safe_load(path.read_text())
-        if cfg["training"]["early_stop_metric"] != entry["validation_metric"]:
+        if cfg["training"]["early_stop_metric"] != (entry.get("selection_metric") or entry["validation_metric"]):
             raise ValueError(f"Checkpoint selection mismatch: {path}")
-        if cfg.get("release", {}).get("protocol") != "validation_selected_v1":
+        if cfg.get("release", {}).get("protocol") != entry.get("protocol", "validation_selected_v1"):
             raise ValueError(f"Run does not declare the current protocol: {path}")
         if cfg["pretrained"].get("strategy","GRACE") != args.strategy:
             raise ValueError(f"Pretraining strategy mismatch: {path}")

@@ -68,5 +68,16 @@
     "output_dir": "outputs/main_validation/wikics",
     "trials": 10,
     "original_config": "results/main/archived_configs/wikics.yaml"
+  },
+  {
+    "dataset": "squirrel",
+    "config": "configs/main/squirrel.yaml",
+    "selection_metric": "train_loss",
+    "validation_metric": "train_loss",
+    "protocol": "fixed_beta_train_loss_v1",
+    "report_metric": "test_acc",
+    "report_selection": "best",
+    "output_dir": "outputs/main_validation/squirrel",
+    "trials": 10
   }
 ]

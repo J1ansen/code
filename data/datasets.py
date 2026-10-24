@@ -30,6 +30,8 @@ DATASET_ALIASES: dict[str, str] = {
     "ChameleonFiltered": "chameleon_filtered",
     "squirrel": "squirrel",
     "Squirrel": "squirrel",
+    "squirrel_filtered": "squirrel_filtered",
+    "SquirrelFiltered": "squirrel_filtered",
     "texas": "Texas",
     "Texas": "Texas",
     "wisconsin": "Wisconsin",
@@ -122,10 +124,10 @@ def load_node_dataset(
         normalize_features = canonical != "WikiCS"
     transform = T.NormalizeFeatures() if bool(normalize_features) else None
 
-    if canonical == "chameleon_filtered":
-        from data.filtered_wikipedia import load_filtered_chameleon
+    if canonical in {"chameleon_filtered", "squirrel_filtered"}:
+        from data.filtered_wikipedia import load_filtered_wikipedia
 
-        data = load_filtered_chameleon(root_path)
+        data = load_filtered_wikipedia(root_path, canonical, download_if_missing=download_if_missing)
         if transform is not None:
             data = transform(data)
         return LoadedNodeDataset(

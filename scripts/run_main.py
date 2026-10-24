@@ -6,11 +6,11 @@ import sys
 import yaml
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
-parser.add_argument("--dataset", choices=["all","cora","citeseer","pubmed","wikics","actor","chameleon","minesweeper"], default="all")
+parser.add_argument("--dataset", choices=["all","cora","citeseer","pubmed","wikics","actor","chameleon","squirrel","minesweeper"], default="all")
 parser.add_argument("--smoke", action="store_true")
 parser.add_argument("--strategy", choices=["GRACE","DGI","GraphMAE"], default="GRACE")
 args = parser.parse_args()
-names = ["cora","citeseer","pubmed","wikics","actor","chameleon","minesweeper"] if args.dataset=="all" else [args.dataset]
+names = ["cora","citeseer","pubmed","wikics","actor","chameleon","squirrel","minesweeper"] if args.dataset=="all" else [args.dataset]
 targets = [yaml.safe_load((ROOT/f"configs/main/{name}.yaml").read_text())["experiment"]["target_dataset"] for name in names]
 subprocess.run([sys.executable,"scripts/prepare_data.py","--datasets",*dict.fromkeys(["Cora",*targets])],cwd=ROOT,check=True)
 for name in names:

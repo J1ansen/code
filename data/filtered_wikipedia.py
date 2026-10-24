@@ -1,4 +1,4 @@
-"""Official duplicate-filtered Chameleon, isolated from WikipediaNetwork caches."""
+"""Official duplicate-filtered Wikipedia graphs in an isolated cache."""
 
 from pathlib import Path
 
@@ -15,9 +15,33 @@ SOURCE_URL = (
 
 
 def load_filtered_chameleon(root: Path) -> Data:
-    path = Path(root) / "FilteredWikipedia/chameleon_filtered/raw/chameleon_filtered.npz"
+    return load_filtered_wikipedia(root, "chameleon_filtered")
+
+
+def load_filtered_wikipedia(root: Path, name: str, *, download_if_missing: bool = False) -> Data:
+    if name not in {"chameleon_filtered", "squirrel_filtered"}:
+        raise ValueError(f"Unknown filtered Wikipedia dataset: {name}")
+    path = Path(root) / f"FilteredWikipedia/{name}/raw/{name}.npz"
     if not path.is_file():
-        raise FileNotFoundError(f"Download {SOURCE_URL} explicitly to {path}")
+        url = SOURCE_URL.replace("chameleon_filtered", name)
+        if not download_if_missing:
+            raise FileNotFoundError(f"Download {url} explicitly to {path}")
+        from urllib.request import urlopen
+        import os
+        import tempfile
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with urlopen(url, timeout=120) as response:
+            content = response.read()
+        with tempfile.NamedTemporaryFile(dir=path.parent, suffix=".npz", delete=False) as tmp:
+            tmp.write(content)
+            temporary = Path(tmp.name)
+        try:
+            with np.load(temporary, allow_pickle=False) as arrays:
+                if not {"node_features", "node_labels", "edges", "train_masks", "val_masks", "test_masks"}.issubset(arrays.files):
+                    raise ValueError("Invalid filtered dataset archive")
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
     with np.load(path, allow_pickle=False) as arrays:
         x = torch.tensor(arrays["node_features"], dtype=torch.float32)
         y = torch.tensor(arrays["node_labels"], dtype=torch.long)

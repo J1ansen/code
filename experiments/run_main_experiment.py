@@ -2076,6 +2076,14 @@ def _optimizer_groups(
     prompt_adapter_module: torch.nn.Module | None = None,
     training_cfg: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], list[torch.nn.Parameter], dict[str, float]]:
+    fixed_beta = training_cfg.get("adapter_beta_fixed")
+    if fixed_beta is not None:
+        if model.adapter_style != "stable_zero_init":
+            raise ValueError("Fixed beta requires stable_zero_init adapters")
+        for adapter in model.adapters:
+            with torch.no_grad():
+                adapter.beta.fill_(float(fixed_beta))
+            adapter.beta.requires_grad_(False)
     base_lr = float(training_cfg.get("lr", 0.001))
     base_weight_decay = float(training_cfg.get("weight_decay", 5e-4))
     fusion_alpha_lr_cfg = training_cfg.get("fusion_alpha_lr")

@@ -11,7 +11,8 @@ set -euo pipefail
 # (Hou et al., 2022), with GAT layers, mask tokens, latent re-masking and SCE loss.
 
 # Formal adaptation: 10 trials; validation-accuracy selection except validation
-# Macro-F1 for Minesweeper. Source pretraining uses self-supervised training loss.
+# Macro-F1 for Minesweeper; Squirrel preserves training-loss selection and fixed
+# zero adapter beta. Source pretraining uses self-supervised training loss.
 # Historical records in results/main/ predate this protocol. New weights are
 # trained from source; historical table values are not new reproduction results.
 
@@ -20,7 +21,7 @@ usage() {
 Usage: bash run.sh [options]
 
   --strategy GRACE|DGI|GraphMAE|all   Pretraining objective (default: GRACE)
-  --dataset all|cora|citeseer|pubmed|wikics|actor|chameleon|minesweeper
+  --dataset all|cora|citeseer|pubmed|wikics|actor|chameleon|squirrel|minesweeper
                                      Target dataset (default: all)
   --install                          Install requirements into the chosen Python
   --smoke                            Two pretraining epochs and one adaptation epoch
@@ -67,7 +68,7 @@ case "$strategy" in
     *) printf 'Unsupported strategy: %s\n' "$strategy" >&2; exit 2 ;;
 esac
 case "$dataset" in
-    all|cora|citeseer|pubmed|wikics|actor|chameleon|minesweeper) ;;
+    all|cora|citeseer|pubmed|wikics|actor|chameleon|squirrel|minesweeper) ;;
     *) printf 'Unsupported dataset: %s\n' "$dataset" >&2; exit 2 ;;
 esac
 if [[ "$smoke" -eq 1 && "$summary_only" -eq 1 ]]; then
