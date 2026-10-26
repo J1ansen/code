@@ -1,4 +1,4 @@
-"""Prompt residual vector learner for P23 selective feature prompts."""
+"""Prompt residual vector learner for PromptGraph selective feature prompts."""
 
 from __future__ import annotations
 

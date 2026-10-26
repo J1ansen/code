@@ -1,4 +1,4 @@
-"""Static candidate pools for P23 prompt receivers."""
+"""Static candidate pools for PromptGraph prompt receivers."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from torch.nn import functional as F
 
 
 @dataclass(frozen=True)
-class P23StaticPoolResult:
+class PromptGraphStaticPoolResult:
     mask: torch.Tensor
     core_mask: torch.Tensor
     expand_mask: torch.Tensor
@@ -56,8 +56,8 @@ def _token_membership(
     return membership
 
 
-class P23StaticPoolSelector:
-    """Build a static pool before P23 prompt-to-node message passing.
+class PromptPoolSelector:
+    """Build a static pool before PromptGraph prompt-to-node message passing.
 
     The selector is deliberately parameter-free so it can be used as an
     ablation switch without adding trainable capacity.
@@ -101,13 +101,13 @@ class P23StaticPoolSelector:
         labels: torch.Tensor | None,
         train_mask: torch.Tensor,
         num_classes: int,
-    ) -> P23StaticPoolResult:
+    ) -> PromptGraphStaticPoolResult:
         num_nodes = int(x.size(0))
         device = x.device
         if not self.enabled:
             mask = torch.ones(num_nodes, dtype=torch.bool, device=device)
             score = torch.ones(num_nodes, dtype=x.dtype, device=device)
-            return P23StaticPoolResult(
+            return PromptGraphStaticPoolResult(
                 mask=mask,
                 core_mask=mask,
                 expand_mask=mask,
@@ -169,7 +169,7 @@ class P23StaticPoolSelector:
             mask = expand_mask
         else:
             receive_scale = mask.to(dtype=x.dtype)
-        return P23StaticPoolResult(
+        return PromptGraphStaticPoolResult(
             mask=mask,
             core_mask=core_mask,
             expand_mask=expand_mask,

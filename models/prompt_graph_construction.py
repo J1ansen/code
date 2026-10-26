@@ -13,7 +13,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from models.prompt_representation_residual import PromptRepresentationResidual
-from models.p23_static_pool import P23StaticPoolSelector
+from models.prompt_pool import PromptPoolSelector
 from models.prompting_weight_learning import PromptingWeightLearning
 
 
@@ -85,7 +85,7 @@ class PromptGraphConstruction(nn.Module):
         static_pool_cfg.setdefault("feature_topk", self.topk)
         static_pool_cfg.setdefault("binary_threshold", self.binary_threshold)
         static_pool_cfg.setdefault("binary_topk", self.binary_topk)
-        self.static_pool = P23StaticPoolSelector(static_pool_cfg)
+        self.static_pool = PromptPoolSelector(static_pool_cfg)
         self.static_pool_apply_to = str(static_pool_cfg.get("apply_to", "prompt_to_node"))
         if self.static_pool_apply_to not in {"prompt_to_node", "both"}:
             raise ValueError("static_pool.apply_to must be 'prompt_to_node' or 'both'")
@@ -315,33 +315,33 @@ class PromptGraphConstruction(nn.Module):
                 "prompt_usage_entropy": usage_entropy.detach(),
                 "connected_edge_count": int(prompt_edges.size(1)),
                 "edge_type_counts": [int(edge_index.size(1)), int(prompt_edges.size(1)), 0],
-                "p23_selective_graphite_enabled": z.new_tensor(1.0),
-                "p23_pool_ratio": z.new_tensor(float(pool_result.ratio)),
-                "p23_static_pool_enabled": z.new_tensor(float(self.static_pool.enabled)),
-                "p23_static_pool_ratio": z.new_tensor(float(pool_result.ratio)),
-                "p23_static_pool_core_ratio": z.new_tensor(float(pool_result.core_ratio)),
-                "p23_static_pool_expand_ratio": z.new_tensor(float(pool_result.expand_ratio)),
-                "p23_static_pool_mode_soft": z.new_tensor(float(self.static_pool.mode == "soft")),
-                "p23_static_pool_receive_scale_mean": pool_receive_scale.mean() if pool_receive_scale.numel() > 0 else z.new_tensor(0.0),
-                "p23_static_pool_receive_scale_pool_mean": (
+                "prompt_graph_selective_graphite_enabled": z.new_tensor(1.0),
+                "prompt_graph_pool_ratio": z.new_tensor(float(pool_result.ratio)),
+                "prompt_pool_enabled": z.new_tensor(float(self.static_pool.enabled)),
+                "prompt_pool_ratio": z.new_tensor(float(pool_result.ratio)),
+                "prompt_pool_core_ratio": z.new_tensor(float(pool_result.core_ratio)),
+                "prompt_pool_expand_ratio": z.new_tensor(float(pool_result.expand_ratio)),
+                "prompt_pool_mode_soft": z.new_tensor(float(self.static_pool.mode == "soft")),
+                "prompt_pool_receive_scale_mean": pool_receive_scale.mean() if pool_receive_scale.numel() > 0 else z.new_tensor(0.0),
+                "prompt_pool_receive_scale_pool_mean": (
                     pool_receive_scale[pool_mask].mean() if bool(pool_mask.any()) else z.new_tensor(0.0)
                 ),
-                "p23_static_pool_receive_scale_nonpool_mean": (
+                "prompt_pool_receive_scale_nonpool_mean": (
                     pool_receive_scale[~pool_mask].mean() if bool((~pool_mask).any()) else z.new_tensor(0.0)
                 ),
-                "p23_static_pool_score_mean": pool_score.mean() if pool_score.numel() > 0 else z.new_tensor(0.0),
-                "p23_static_pool_score_pool_mean": pool_score[pool_mask].mean() if bool(pool_mask.any()) else z.new_tensor(0.0),
-                "p23_static_pool_score_nonpool_mean": pool_score[~pool_mask].mean() if bool((~pool_mask).any()) else z.new_tensor(0.0),
-                "p23_feature_prompt_count": z.new_tensor(float(feature_ids.numel())),
-                "p23_prompt_edge_count": z.new_tensor(float(prompt_edges.size(1))),
-                "p23_selective_feature_prompt_count": z.new_tensor(float(feature_ids.numel())),
-                "p23_selective_feature_edge_count": z.new_tensor(float(prompt_edges.size(1))),
-                "p23_selective_valid_feature_ratio": valid.to(dtype=dtype).mean() if valid.numel() > 0 else z.new_tensor(0.0),
-                "p23_selective_feature_purity_mean": purity[feature_ids].mean() if feature_ids.numel() > 0 else z.new_tensor(0.0),
-                "p23_selective_feature_entropy_mean": entropy[feature_ids].mean() if feature_ids.numel() > 0 else z.new_tensor(0.0),
-                "p23_selective_feature_margin_mean": margin[feature_ids].mean() if feature_ids.numel() > 0 else z.new_tensor(0.0),
-                "p23_selective_feature_label_count_mean": total_label[feature_ids].mean() if feature_ids.numel() > 0 else z.new_tensor(0.0),
-                "p23_selective_feature_degree_max": usage.max() if usage.numel() > 0 else z.new_tensor(0.0),
+                "prompt_pool_score_mean": pool_score.mean() if pool_score.numel() > 0 else z.new_tensor(0.0),
+                "prompt_pool_score_pool_mean": pool_score[pool_mask].mean() if bool(pool_mask.any()) else z.new_tensor(0.0),
+                "prompt_pool_score_nonpool_mean": pool_score[~pool_mask].mean() if bool((~pool_mask).any()) else z.new_tensor(0.0),
+                "prompt_graph_feature_prompt_count": z.new_tensor(float(feature_ids.numel())),
+                "prompt_graph_prompt_edge_count": z.new_tensor(float(prompt_edges.size(1))),
+                "prompt_graph_selective_feature_prompt_count": z.new_tensor(float(feature_ids.numel())),
+                "prompt_graph_selective_feature_edge_count": z.new_tensor(float(prompt_edges.size(1))),
+                "prompt_graph_selective_valid_feature_ratio": valid.to(dtype=dtype).mean() if valid.numel() > 0 else z.new_tensor(0.0),
+                "prompt_graph_selective_feature_purity_mean": purity[feature_ids].mean() if feature_ids.numel() > 0 else z.new_tensor(0.0),
+                "prompt_graph_selective_feature_entropy_mean": entropy[feature_ids].mean() if feature_ids.numel() > 0 else z.new_tensor(0.0),
+                "prompt_graph_selective_feature_margin_mean": margin[feature_ids].mean() if feature_ids.numel() > 0 else z.new_tensor(0.0),
+                "prompt_graph_selective_feature_label_count_mean": total_label[feature_ids].mean() if feature_ids.numel() > 0 else z.new_tensor(0.0),
+                "prompt_graph_selective_feature_degree_max": usage.max() if usage.numel() > 0 else z.new_tensor(0.0),
             },
         }
 
@@ -484,45 +484,45 @@ class PromptGraphConstruction(nn.Module):
             for key, value in graph["aux"].items()
         }
         aux["prompt_edge_weight"] = prompt_edge_weight
-        aux["p24_static_prompt_edge_weight"] = static_prompt_edge_weight
-        aux["p24_edge_gate"] = denoiser_out["edge_gate"]
-        aux["p24_effective_edge_gate"] = denoiser_out["effective_edge_gate"]
-        aux["p24_learned_prompt_edge_weight"] = static_prompt_edge_weight * denoiser_out["edge_gate"]
-        aux["p24_keep_static_loss"] = denoiser_out["losses"]["keep_static"]
-        aux["p24_hub_suppression_loss"] = denoiser_out["losses"]["hub_suppression"]
-        aux["p24_prompt_homophily_loss"] = denoiser_out["losses"]["prompt_homophily"]
-        aux["p24_edge_budget_loss"] = denoiser_out["losses"]["edge_budget"]
+        aux["prompting_static_prompt_edge_weight"] = static_prompt_edge_weight
+        aux["prompting_edge_gate"] = denoiser_out["edge_gate"]
+        aux["prompting_effective_edge_gate"] = denoiser_out["effective_edge_gate"]
+        aux["prompting_learned_prompt_edge_weight"] = static_prompt_edge_weight * denoiser_out["edge_gate"]
+        aux["prompting_keep_static_loss"] = denoiser_out["losses"]["keep_static"]
+        aux["prompting_hub_suppression_loss"] = denoiser_out["losses"]["hub_suppression"]
+        aux["prompting_prompt_homophily_loss"] = denoiser_out["losses"]["prompt_homophily"]
+        aux["prompting_edge_budget_loss"] = denoiser_out["losses"]["edge_budget"]
         aux.update(denoiser_out["stats"])
-        aux["p23_selective_edge_feature_local"] = graph["edge_feature_local"].to(device=z.device)
-        aux["p23_selective_edge_node_index"] = graph["edge_node_index"].to(device=z.device)
-        aux["p23_selective_edge_direction"] = graph["edge_direction"].to(device=z.device)
-        aux["p23_selective_feature_gate"] = feature_gate
-        aux["p23_selective_edge_gate"] = edge_gate
-        aux["p23_selective_edge_gate_probability"] = edge_gate_probability
-        aux["p23_selective_feature_dominant_class"] = graph["feature_dominant_class"].to(device=z.device)
-        aux["p23_selective_static_cache_hit"] = z.new_tensor(float(cache_hit))
-        aux["p23_selective_feature_edge_weight_mean"] = (
+        aux["prompt_graph_selective_edge_feature_local"] = graph["edge_feature_local"].to(device=z.device)
+        aux["prompt_graph_selective_edge_node_index"] = graph["edge_node_index"].to(device=z.device)
+        aux["prompt_graph_selective_edge_direction"] = graph["edge_direction"].to(device=z.device)
+        aux["prompt_graph_selective_feature_gate"] = feature_gate
+        aux["prompt_graph_selective_edge_gate"] = edge_gate
+        aux["prompt_graph_selective_edge_gate_probability"] = edge_gate_probability
+        aux["prompt_graph_selective_feature_dominant_class"] = graph["feature_dominant_class"].to(device=z.device)
+        aux["prompt_graph_selective_static_cache_hit"] = z.new_tensor(float(cache_hit))
+        aux["prompt_graph_selective_feature_edge_weight_mean"] = (
             static_prompt_edge_weight.mean() if static_prompt_edge_weight.numel() > 0 else z.new_tensor(0.0)
         )
-        aux["p23_selective_edge_gate_mean"] = edge_gate.mean() if edge_gate.numel() > 0 else z.new_tensor(0.0)
-        aux["p23_selective_edge_gate_min"] = edge_gate.min() if edge_gate.numel() > 0 else z.new_tensor(0.0)
-        aux["p23_selective_edge_gate_max"] = edge_gate.max() if edge_gate.numel() > 0 else z.new_tensor(0.0)
-        aux["p23_prompt_residual_enabled"] = z.new_tensor(float(self.prompt_residual.enabled))
-        aux["p23_prompt_residual_delta_norm_loss"] = residual_out["delta_norm_loss"]
-        aux["p23_prompt_residual_delta_align_loss"] = residual_out["delta_align_loss"]
-        aux["p23_prompt_residual_gate_budget_loss"] = residual_out["gate_budget_loss"]
-        aux["p23_prompt_residual_delta_norm_mean"] = residual_out["delta_norm_mean"]
-        aux["p23_prompt_residual_delta_norm_max"] = residual_out["delta_norm_max"]
-        aux["p23_prompt_residual_delta_to_init_ratio"] = residual_out["delta_to_init_ratio"]
-        aux["p23_prompt_residual_delta_cosine_to_init"] = residual_out["delta_cosine_to_init"]
-        aux["p23_prompt_residual_gate_mean"] = residual_out["gate_mean"]
-        aux["p23_prompt_residual_gate_max"] = residual_out["gate_max"]
-        aux["p23_prompt_residual_gate_reliability_corr"] = residual_out["gate_reliability_corr"]
-        aux["p23_prompt_residual_coeff_abs_mean"] = residual_out["coeff_abs_mean"]
-        aux["p23_prompt_residual_coeff_entropy"] = residual_out["coeff_entropy"]
-        aux["p23_prompt_residual_clip_fraction"] = residual_out["clip_fraction"]
-        aux["p23_prompt_residual_reliability_mean"] = residual_out["reliability_mean"]
-        aux["p23_prompt_residual_reliability_active_ratio"] = residual_out["reliability_active_ratio"]
+        aux["prompt_graph_selective_edge_gate_mean"] = edge_gate.mean() if edge_gate.numel() > 0 else z.new_tensor(0.0)
+        aux["prompt_graph_selective_edge_gate_min"] = edge_gate.min() if edge_gate.numel() > 0 else z.new_tensor(0.0)
+        aux["prompt_graph_selective_edge_gate_max"] = edge_gate.max() if edge_gate.numel() > 0 else z.new_tensor(0.0)
+        aux["prompt_graph_prompt_residual_enabled"] = z.new_tensor(float(self.prompt_residual.enabled))
+        aux["prompt_graph_prompt_residual_delta_norm_loss"] = residual_out["delta_norm_loss"]
+        aux["prompt_graph_prompt_residual_delta_align_loss"] = residual_out["delta_align_loss"]
+        aux["prompt_graph_prompt_residual_gate_budget_loss"] = residual_out["gate_budget_loss"]
+        aux["prompt_graph_prompt_residual_delta_norm_mean"] = residual_out["delta_norm_mean"]
+        aux["prompt_graph_prompt_residual_delta_norm_max"] = residual_out["delta_norm_max"]
+        aux["prompt_graph_prompt_residual_delta_to_init_ratio"] = residual_out["delta_to_init_ratio"]
+        aux["prompt_graph_prompt_residual_delta_cosine_to_init"] = residual_out["delta_cosine_to_init"]
+        aux["prompt_graph_prompt_residual_gate_mean"] = residual_out["gate_mean"]
+        aux["prompt_graph_prompt_residual_gate_max"] = residual_out["gate_max"]
+        aux["prompt_graph_prompt_residual_gate_reliability_corr"] = residual_out["gate_reliability_corr"]
+        aux["prompt_graph_prompt_residual_coeff_abs_mean"] = residual_out["coeff_abs_mean"]
+        aux["prompt_graph_prompt_residual_coeff_entropy"] = residual_out["coeff_entropy"]
+        aux["prompt_graph_prompt_residual_clip_fraction"] = residual_out["clip_fraction"]
+        aux["prompt_graph_prompt_residual_reliability_mean"] = residual_out["reliability_mean"]
+        aux["prompt_graph_prompt_residual_reliability_active_ratio"] = residual_out["reliability_active_ratio"]
         return {
             "adapted_x": adapted_x,
             "adapted_edge_index": adapted_edge_index,

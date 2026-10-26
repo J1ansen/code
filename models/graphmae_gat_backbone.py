@@ -22,7 +22,7 @@ class GraphMAEWeightedGATConv(MessagePassing):
     ``edge_weight_mode='ignore'`` or no weights are supplied, the attention is
     the original GP2F behavior. ``attention_prior`` adds
     ``edge_weight_strength * log(edge_weight)`` before neighborhood softmax so
-    P23 prompt-edge weights remain meaningful without forcing full-strength
+    PromptGraph prompt-edge weights remain meaningful without forcing full-strength
     reweighting on every pretrained encoder.
     """
 

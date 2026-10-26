@@ -72,9 +72,10 @@
   {
     "dataset": "squirrel",
     "config": "configs/main/squirrel.yaml",
-    "selection_metric": "train_loss",
-    "validation_metric": "train_loss",
-    "protocol": "fixed_beta_train_loss_v1",
+    "selection_metric": "val_acc",
+    "validation_metric": "val_acc",
+    "protocol": "validation_selected_v1",
+    "full_training_epochs": 160,
     "report_metric": "test_acc",
     "report_selection": "best",
     "output_dir": "outputs/main_validation/squirrel",

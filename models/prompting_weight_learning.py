@@ -26,12 +26,12 @@ class PromptingWeightLearning(nn.Module):
         super().__init__()
         self.config = dict(config or {})
         self.descriptor_type = str(self.config.get("descriptor_type", "statistics"))
-        if self.descriptor_type not in {"statistics", "representation_concat", "raw_representation_concat", "independent_edge"}:
-            raise ValueError("Unknown P24 descriptor_type: " + self.descriptor_type)
+        if self.descriptor_type not in {"statistics", "representation_concat", "raw_representation_concat"}:
+            raise ValueError("Unknown Prompting descriptor_type: " + self.descriptor_type)
         self.enabled = bool(self.config.get("enabled", False))
         self.allow_new_edges = bool(self.config.get("allow_new_edges", False))
         if self.allow_new_edges:
-            raise ValueError("P24 v1 only denoises existing P23 edges; allow_new_edges must be false")
+            raise ValueError("Prompting v1 only denoises existing PromptGraph edges; allow_new_edges must be false")
         self.apply_to = str(self.config.get("apply_to", "prompt_to_node"))
         if self.apply_to not in {"prompt_to_node", "both"}:
             raise ValueError("prompt_edge_denoising.apply_to must be 'prompt_to_node' or 'both'")
@@ -82,7 +82,7 @@ class PromptingWeightLearning(nn.Module):
                 raise ValueError("source_dim and projection_dim must be positive")
             if not 0.0 <= self.mix_ratio_init <= self.mix_ratio_max <= 1.0:
                 raise ValueError("representation_concat requires 0 <= mix_ratio_init <= mix_ratio_max <= 1")
-            # P23 constructs this module before its own gates. Keep its RNG stream
+            # PromptGraph constructs this module before its own gates. Keep its RNG stream
             # and legacy state-dict keys unchanged when adding the new networks.
             with torch.random.fork_rng(devices=[]):
                 self.representation_projection = nn.Sequential(
@@ -116,17 +116,6 @@ class PromptingWeightLearning(nn.Module):
             self.edge_gate.requires_grad_(False)
 
         self.independent_edge_weights: nn.Module | None = None
-        if self.descriptor_type == "independent_edge":
-            from models.p24_independent_edge_weights import IndependentPromptEdgeWeights
-            if self.apply_to != "prompt_to_node":
-                raise ValueError("Independent weights require prompt_to_node")
-            if (self.gate_floor, self.gate_cap, self.gate_init) != (0.5, 1.5, 1.0):
-                raise ValueError("Independent mode requires gate_floor=0.5, gate_cap=1.5, gate_init=1")
-            if not 0 <= self.mix_ratio_init <= self.mix_ratio_max <= 1:
-                raise ValueError("Invalid independent fusion range")
-            self.independent_edge_weights = IndependentPromptEdgeWeights(self.config)
-            self.edge_gate.requires_grad_(False)
-
         self.calibrator_grad_scale = float(self.config.get("calibrator_grad_scale", 1.0))
         if self.calibrator_grad_scale <= 0.0:
             raise ValueError("prompt_edge_denoising.calibrator_grad_scale must be positive")
@@ -179,30 +168,30 @@ class PromptingWeightLearning(nn.Module):
                 "edge_budget": zero,
             },
             "stats": {
-                "p24_enabled": zero,
-                "p24_edge_gate_mean": gate.mean() if gate.numel() > 0 else zero,
-                "p24_edge_gate_min": gate.min() if gate.numel() > 0 else zero,
-                "p24_edge_gate_max": gate.max() if gate.numel() > 0 else zero,
-                "p24_prompt_to_node_gate_mean": gate.mean() if gate.numel() > 0 else zero,
-                "p24_node_to_prompt_gate_mean": gate.mean() if gate.numel() > 0 else zero,
-                "p24_hub_gate_mean": zero,
-                "p24_nonhub_gate_mean": zero,
-                "p24_edge_keep_ratio": gate.new_tensor(1.0) if gate.numel() > 0 else zero,
-                "p24_homophily_loss": zero,
-                "p24_learned_gate_mean": gate.mean() if gate.numel() > 0 else one,
-                "p24_effective_gate_mean": gate.mean() if gate.numel() > 0 else one,
-                "p24_mix_ratio": zero,
-                "p24_gate_above_one_ratio": zero,
-                "p24_effective_gate_below_0p3_ratio": zero,
-                "p24_effective_gate_below_0p5_ratio": zero,
-                "p24_effective_gate_above_one_ratio": zero,
-                "p24_within_prompt_gate_std_mean": zero,
-                "p24_weight_delta_mean": zero,
-                "p24_weight_delta_abs_mean": zero,
-                "p24_train_edge_homophily_raw": zero,
-                "p24_train_edge_homophily_weighted": zero,
-                "p24_train_same_class_gate_mean": zero,
-                "p24_train_offclass_gate_mean": zero,
+                "prompting_enabled": zero,
+                "prompting_edge_gate_mean": gate.mean() if gate.numel() > 0 else zero,
+                "prompting_edge_gate_min": gate.min() if gate.numel() > 0 else zero,
+                "prompting_edge_gate_max": gate.max() if gate.numel() > 0 else zero,
+                "prompting_prompt_to_node_gate_mean": gate.mean() if gate.numel() > 0 else zero,
+                "prompting_node_to_prompt_gate_mean": gate.mean() if gate.numel() > 0 else zero,
+                "prompting_hub_gate_mean": zero,
+                "prompting_nonhub_gate_mean": zero,
+                "prompting_edge_keep_ratio": gate.new_tensor(1.0) if gate.numel() > 0 else zero,
+                "prompting_homophily_loss": zero,
+                "prompting_learned_gate_mean": gate.mean() if gate.numel() > 0 else one,
+                "prompting_effective_gate_mean": gate.mean() if gate.numel() > 0 else one,
+                "prompting_mix_ratio": zero,
+                "prompting_gate_above_one_ratio": zero,
+                "prompting_effective_gate_below_0p3_ratio": zero,
+                "prompting_effective_gate_below_0p5_ratio": zero,
+                "prompting_effective_gate_above_one_ratio": zero,
+                "prompting_within_prompt_gate_std_mean": zero,
+                "prompting_weight_delta_mean": zero,
+                "prompting_weight_delta_abs_mean": zero,
+                "prompting_train_edge_homophily_raw": zero,
+                "prompting_train_edge_homophily_weighted": zero,
+                "prompting_train_same_class_gate_mean": zero,
+                "prompting_train_offclass_gate_mean": zero,
             },
         }
 
@@ -351,36 +340,36 @@ class PromptingWeightLearning(nn.Module):
             feature_count=int(usage.numel()),
         )
         stats_out = {
-            "p24_enabled": base_edge_weight.new_tensor(1.0),
-            "p24_edge_gate_mean": edge_gate.mean() if edge_gate.numel() > 0 else zero,
-            "p24_edge_gate_min": edge_gate.min() if edge_gate.numel() > 0 else zero,
-            "p24_edge_gate_max": edge_gate.max() if edge_gate.numel() > 0 else zero,
-            "p24_prompt_to_node_gate_mean": edge_gate[p2n_mask].mean() if bool(p2n_mask.any()) else zero,
-            "p24_node_to_prompt_gate_mean": edge_gate[n2p_mask].mean() if bool(n2p_mask.any()) else zero,
-            "p24_hub_gate_mean": edge_gate[hub_edge_mask].mean() if bool(hub_edge_mask.any()) else zero,
-            "p24_nonhub_gate_mean": edge_gate[nonhub_edge_mask].mean() if bool(nonhub_edge_mask.any()) else zero,
-            "p24_edge_keep_ratio": (active_gate >= self.keep_threshold).to(dtype=dtype).mean()
+            "prompting_enabled": base_edge_weight.new_tensor(1.0),
+            "prompting_edge_gate_mean": edge_gate.mean() if edge_gate.numel() > 0 else zero,
+            "prompting_edge_gate_min": edge_gate.min() if edge_gate.numel() > 0 else zero,
+            "prompting_edge_gate_max": edge_gate.max() if edge_gate.numel() > 0 else zero,
+            "prompting_prompt_to_node_gate_mean": edge_gate[p2n_mask].mean() if bool(p2n_mask.any()) else zero,
+            "prompting_node_to_prompt_gate_mean": edge_gate[n2p_mask].mean() if bool(n2p_mask.any()) else zero,
+            "prompting_hub_gate_mean": edge_gate[hub_edge_mask].mean() if bool(hub_edge_mask.any()) else zero,
+            "prompting_nonhub_gate_mean": edge_gate[nonhub_edge_mask].mean() if bool(nonhub_edge_mask.any()) else zero,
+            "prompting_edge_keep_ratio": (active_gate >= self.keep_threshold).to(dtype=dtype).mean()
             if active_gate.numel() > 0
             else zero,
-            "p24_homophily_loss": homophily_loss,
-            "p24_learned_gate_mean": active_gate.mean() if active_gate.numel() > 0 else zero,
-            "p24_effective_gate_mean": effective_edge_gate[apply_mask].mean() if bool(apply_mask.any()) else zero,
-            "p24_mix_ratio": mix_ratio,
-            "p24_gate_above_one_ratio": (active_gate > 1.0).to(dtype=dtype).mean() if active_gate.numel() > 0 else zero,
-            "p24_effective_gate_below_0p3_ratio": (active_effective_gate < 0.3).to(dtype=dtype).mean()
+            "prompting_homophily_loss": homophily_loss,
+            "prompting_learned_gate_mean": active_gate.mean() if active_gate.numel() > 0 else zero,
+            "prompting_effective_gate_mean": effective_edge_gate[apply_mask].mean() if bool(apply_mask.any()) else zero,
+            "prompting_mix_ratio": mix_ratio,
+            "prompting_gate_above_one_ratio": (active_gate > 1.0).to(dtype=dtype).mean() if active_gate.numel() > 0 else zero,
+            "prompting_effective_gate_below_0p3_ratio": (active_effective_gate < 0.3).to(dtype=dtype).mean()
             if active_effective_gate.numel() > 0 else zero,
-            "p24_effective_gate_below_0p5_ratio": (active_effective_gate < 0.5).to(dtype=dtype).mean()
+            "prompting_effective_gate_below_0p5_ratio": (active_effective_gate < 0.5).to(dtype=dtype).mean()
             if active_effective_gate.numel() > 0 else zero,
-            "p24_effective_gate_above_one_ratio": (active_effective_gate > 1.0).to(dtype=dtype).mean()
+            "prompting_effective_gate_above_one_ratio": (active_effective_gate > 1.0).to(dtype=dtype).mean()
             if active_effective_gate.numel() > 0 else zero,
-            "p24_within_prompt_gate_std_mean": within_prompt_std,
-            "p24_weight_delta_mean": weight_delta[apply_mask].mean() if bool(apply_mask.any()) else zero,
-            "p24_weight_delta_abs_mean": weight_delta[apply_mask].abs().mean() if bool(apply_mask.any()) else zero,
+            "prompting_within_prompt_gate_std_mean": within_prompt_std,
+            "prompting_weight_delta_mean": weight_delta[apply_mask].mean() if bool(apply_mask.any()) else zero,
+            "prompting_weight_delta_abs_mean": weight_delta[apply_mask].abs().mean() if bool(apply_mask.any()) else zero,
             **homophily_stats,
         }
         if self.independent_edge_weights is not None:
             seen = self.independent_edge_weights.gradient_seen
-            stats_out["p24_independent_gradient_seen_ratio"] = seen.to(dtype=dtype).mean() if seen.numel() else zero
+            stats_out["prompting_independent_gradient_seen_ratio"] = seen.to(dtype=dtype).mean() if seen.numel() else zero
         return {
             "edge_gate": edge_gate,
             "effective_edge_gate": effective_edge_gate,
@@ -430,10 +419,10 @@ class PromptingWeightLearning(nn.Module):
     ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         zero = self._zero(edge_gate)
         empty_stats = {
-            "p24_train_edge_homophily_raw": zero,
-            "p24_train_edge_homophily_weighted": zero,
-            "p24_train_same_class_gate_mean": zero,
-            "p24_train_offclass_gate_mean": zero,
+            "prompting_train_edge_homophily_raw": zero,
+            "prompting_train_edge_homophily_weighted": zero,
+            "prompting_train_same_class_gate_mean": zero,
+            "prompting_train_offclass_gate_mean": zero,
         }
         if not (
             isinstance(feature_dominant_class, torch.Tensor)
@@ -459,9 +448,9 @@ class PromptingWeightLearning(nn.Module):
             else zero
         )
         stats = {
-            "p24_train_edge_homophily_raw": same.to(dtype=valid_gate.dtype).mean() if same.numel() > 0 else zero,
-            "p24_train_edge_homophily_weighted": weighted,
-            "p24_train_same_class_gate_mean": valid_gate[same].mean() if bool(same.any()) else zero,
-            "p24_train_offclass_gate_mean": valid_gate[~same].mean() if bool((~same).any()) else zero,
+            "prompting_train_edge_homophily_raw": same.to(dtype=valid_gate.dtype).mean() if same.numel() > 0 else zero,
+            "prompting_train_edge_homophily_weighted": weighted,
+            "prompting_train_same_class_gate_mean": valid_gate[same].mean() if bool(same.any()) else zero,
+            "prompting_train_offclass_gate_mean": valid_gate[~same].mean() if bool((~same).any()) else zero,
         }
         return loss, stats

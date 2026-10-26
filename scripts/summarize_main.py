@@ -33,5 +33,14 @@ for entry in entries:
             raise ValueError(f"Run does not declare the current protocol: {path}")
         if cfg["pretrained"].get("strategy","GRACE") != args.strategy:
             raise ValueError(f"Pretraining strategy mismatch: {path}")
+        full_epochs = entry.get("full_training_epochs")
+        if full_epochs is not None:
+            if cfg["training"]["epochs"] != full_epochs or cfg["training"].get("early_stop_patience") != 0:
+                raise ValueError(f"Expected full {full_epochs}-epoch training without early stopping: {path}")
+            if not cfg["model"].get("use_adapters", True) or cfg["training"].get("adapter_beta_fixed") is not None:
+                raise ValueError(f"Expected learnable Adapters: {path}")
+    if entry.get("full_training_epochs") is not None:
+        if any(run.get("stopped_epoch") != entry["full_training_epochs"] for run in runs):
+            raise ValueError(f"Some trials did not complete {entry['full_training_epochs']} epochs")
     values=[100*r[entry["report_selection"]][entry["report_metric"]] for r in runs]
     print(f"{entry['dataset']}: {statistics.mean(values):.2f} +/- {statistics.stdev(values):.2f} ({len(values)} trials)")

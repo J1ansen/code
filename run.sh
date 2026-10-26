@@ -11,8 +11,8 @@ set -euo pipefail
 # (Hou et al., 2022), with GAT layers, mask tokens, latent re-masking and SCE loss.
 
 # Formal adaptation: 10 trials; validation-accuracy selection except validation
-# Macro-F1 for Minesweeper; Squirrel preserves training-loss selection and fixed
-# zero adapter beta. Source pretraining uses self-supervised training loss.
+# Macro-F1 for Minesweeper. Squirrel trains learnable Adapters for all 160 epochs
+# without early stopping. Source pretraining uses self-supervised training loss.
 # Historical records in results/main/ predate this protocol. New weights are
 # trained from source; historical table values are not new reproduction results.
 
